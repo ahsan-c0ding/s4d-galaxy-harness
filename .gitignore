@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Data / large artifacts -- regenerate, don't commit
+/data/
+results/runs/*.json
+results/weights/*.pt
+results/notebook_dumps/
+!results/runs/.gitkeep
+!results/weights/.gitkeep
+
+# The compiled Excel report IS tracked (small, hand-curated) -- do not ignore it.
+!results/compiled_training_runs.xlsx
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,226 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{pdflscape}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+\usepackage{amsmath}
+\usepackage{float}
+
+\title{\textbf{Isolating the Source of Performance in an S4D Galaxy Classifier:\\
+An Ablation Study of Patch Embedding vs.\ Sequence Modeling}}
+\author{Team 0x43}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+The production galaxy morphology classifier in this project pairs a convolutional patch stem
+(\texttt{ConvPatchStem}: two plain, unnormalized convolutions, kept minimal for eventual
+bare-metal RISC-V portability) with a stack of S4D (diagonal structured state-space)
+sequence-modeling layers, reaching 86.80\% test accuracy at 528{,}004 parameters. This report
+asks one question of that model, then asks it again of a second, independently implemented
+architecture to see whether the answer generalizes: is the model's accuracy coming from its
+convolutional patch embedding, from the S4D layers, or both?
+
+On the production architecture, the answer is unambiguous. Across thirteen configurations
+spanning embedding type, sequence-model presence, pooling strategy, and parameter budget
+(13.6K--528K), removing S4D costs 35--47 percentage points --- 11--15$\times$ larger than a
+directly measured single-seed noise floor of 3.25pp. Every finer-grained claim about this
+architecture (the conv stem's own marginal contribution, pooling invariance, depth and width
+sensitivity) sits at or below that noise floor and is reported accordingly, as suggestive
+rather than confirmed.
+
+On a second, richer architecture (\texttt{CNNStem}: four convolutions, GroupNorm,
+a residual connection, no portability constraint) built around the same S4D layer, the
+picture is different --- and getting to the right comparison required controlling for a
+confound that turned out to be large in its own right. An initial comparison, run under a
+short 40-epoch schedule, found CNN+S4D beating CNN-only by 2.75pp. A dedicated check of
+training recipe as a variable found that recipe alone moves accuracy by 8--10 percentage
+points in one direction and 2.25--2.55pp in the other, consistently across six architectures
+--- large enough that the two studies' original head-to-head numbers were never a fair
+comparison to begin with. Under a shared, fully-trained recipe, the CNN-only variant closes
+to within 0.50pp of the CNN+S4D hybrid, inside a directly measured two-seed noise floor for
+that exact comparison (0.10--0.65pp). On this richer stem, once training budget stops being a
+confound, S4D is not contributing a measurable amount beyond what the stem already provides.
+
+The two results are not in conflict; they are the same finding read from two directions.
+Removing S4D from a deliberately minimal stem is catastrophic. Adding S4D to an already-rich
+stem, given enough training, adds little. How much S4D appears to matter is conditional on
+how much work the stem in front of it is already doing --- a pattern this report also finds
+directly in a grid crossing stem depth against S4D layer count, though a final validation round
+(below) revises that pattern's shape.
+
+A closing, GPU-budgeted validation round, run against a hard weekly compute quota, revisited
+this report's own list of open questions. It confirmed, with repeat seeds, that the production
+family's convolutional embedding beats its linear embedding (1.7--4.0pp, both seeds, both
+budgets) --- and reversed, rather than confirmed, this report's earlier single-run reading on
+pooling, with mean pooling now ahead of last pooling in four independent repeat-seed
+comparisons. It also re-ran 11 of the 13 stem-depth$\times$S4D-layer grid cells under the fully
+trained recipe, and found that the smooth, continuous interaction reported above was largely a
+training-budget artifact: S4D's marginal contribution flattens to noise-floor size at three of
+the four stem depths retested, surviving only at the shallowest, and even there only partially
+re-verified before the compute budget ran out. A GroupNorm-folding test for RISC-V portability
+completed cleanly (a real 2.30pp accuracy cost, not a free simplification), while a planned
+noise-robustness repeat-seed sweep did not get a single model trained before the quota was
+exhausted. All of this is reported in full, including what did not finish, rather than only the
+parts that did.
+\end{abstract}
+
+\tableofcontents
+
+% ============================================================================
+\section{Introduction}
+% ============================================================================
+The production model for this project pairs a two-layer convolutional patch stem
+(\texttt{ConvPatchStem}) with a stack of S4D sequence-mixing layers, ordering image patches
+along a Hilbert space-filling curve before feeding them through the S4D stack. The model
+performs well (86.80\% test accuracy on GalaxyMNIST), but two architectural components could
+plausibly be responsible: the convolutional stem, which mixes each patch's local
+$3\times3$ neighborhood before projection, or the S4D layers, which mix information causally
+across the full 256-token patch sequence. Parameter count alone does not resolve this --- in
+the production configuration the S4D stack accounts for roughly 75\% of total parameters, but
+parameter share is not the same as accuracy share.
+
+This report answers that question twice: once for the production architecture itself, using a
+series of ablations that each change exactly one variable while holding data, augmentation,
+optimizer, schedule, and epoch budget fixed; and once for a second, independently implemented
+architecture built around a substantially richer convolutional stem, to check whether the
+production architecture's answer is a general property of this class of model or a property
+of its specific, deliberately minimal stem design. Getting a fair answer for the second
+architecture required first discovering, and then controlling for, a confound that turns out
+to matter more than either study initially assumed: training recipe. That discovery is kept
+in this report as a result in its own right, not edited out in favor of a cleaner-looking
+narrative, and it is one of three places (the other two being a single-configuration
+repeat-seed check on the production architecture, and a closing, GPU-budgeted validation round
+reported in Section~\ref{sec:followup}) where an early reading of the data did not survive
+closer scrutiny. All three are presented here directly as part of the settled account, with
+superseded readings kept only where they are informative in their own right. The closing
+validation round was run specifically to test this report's own previously stated open
+questions against a hard weekly GPU quota; it resolved some of them, partially resolved
+others, and left one untouched when the quota ran out before a single relevant model finished
+training --- that outcome, incomplete parts included, is reported in full in
+Section~\ref{sec:followup} rather than folded quietly into the rest of the text.
+
+% ============================================================================
+\section{Methodology}
+% ============================================================================
+
+\subsection{Dataset}
+All models are trained and evaluated on GalaxyMNIST, a four-class galaxy morphology dataset
+(\textit{Smooth Round}, \textit{Smooth Cigar}, \textit{Edge-on Disk}, \textit{Unbarred
+Spiral}) of $64\times64$ RGB images. Each architecture family (Section~\ref{sec:architectures})
+uses its own fixed train/validation/test split, held constant across every configuration and
+recipe within that family so architectural and recipe comparisons are never contaminated by a
+different data partition. Training images are augmented with random $90^\circ$ rotations and
+random horizontal/vertical flips; validation and test images are not augmented.
+
+\subsection{Architectures}
+\label{sec:architectures}
+Two independently implemented architecture families are studied, sharing the same core
+ingredients --- a convolutional or linear patch embedding, a Hilbert-curve scan, one or more
+diagonal S4D layers (FFT-based parallel convolution, state dimension
+$d_{\text{state}} = d_{\text{model}}$ throughout), and last-timestep or mean pooling into a
+linear classification head --- but differing in stem design and, initially, in how long they
+were trained.
+
+\paragraph{Production family (\texttt{GalaxyClassifierS4DFast}).} The patch embedding is
+either:
+\begin{itemize}
+    \item \textit{Convolutional} (\texttt{ConvPatchStem}): a $3\times3$ convolution
+    (3 $\to$ 32 channels, GELU) followed by a $4\times4$ strided convolution
+    (32 $\to$ $d_{\text{model}}$ channels) --- two plain, unnormalized layers, deliberately
+    kept minimal for eventual bare-metal RISC-V portability; or
+    \item \textit{Linear} (\texttt{nn.Linear}): each raw $4\times4\times3$ patch is flattened
+    (48 values) and projected to $d_{\text{model}}$ dimensions with a single linear layer ---
+    no convolution, no pixel mixing beyond one patch.
+\end{itemize}
+The resulting $16\times16$ grid of patch embeddings is Hilbert-scanned into a length-256
+sequence, passed through zero or more \texttt{S4DConv} layers (each followed by GELU and
+dropout $p{=}0.2$), then pooled (last-token or mean) and classified. Setting the number of
+S4D layers to zero collapses the model to embedding $+$ pooling $+$ linear head with no
+sequence mixing at all; with zero S4D layers, last-token pooling would look at a single
+arbitrary patch, so mean pooling is used in every such configuration for a fair comparison.
+
+\paragraph{Richer-stem family (\texttt{CNNStem} $+$ S4D).} A second, independently implemented
+codebase built around the same S4D layer (verified FFT-equivalent to \texttt{S4DConv} at run
+time) but a substantially richer patch embedding: four convolutional stages with GroupNorm
+after every layer and a residual connection on the first, full-resolution before any
+downsampling. Stem depth is itself a swept variable in this family (1--4 stages, controlling
+how much downsampling happens before the Hilbert scan and hence the S4D sequence length: a
+1-layer stem leaves a length-4096 raw-pixel-scale sequence, a 4-layer stem reduces to the same
+length-256 sequence the production family uses). A raw-pixel, no-CNN-stem configuration
+(linear projection straight from pixels, S4D operating on the full length-4096 sequence) is
+also tested as the opposite extreme from the production family's minimal-stem design. Before
+any training, this codebase's pooling layer was audited and found to be silently
+mean-pooling despite being named, documented, and self-tested as last-timestep pooling; this
+was corrected before any run reported here, so all last-timestep pooling in this report,
+across both families, is genuine.
+
+\subsection{Training Recipes}
+\label{sec:recipes}
+Two training recipes are used. The \textbf{main recipe} (630 epochs) is the production
+family's own: AdamW with parameter groups (no weight decay on bias/norm terms and on S4D's
+specially-registered parameters, $10^{-2}$ weight decay elsewhere), initial learning rate
+$10^{-3}$, \texttt{CosineAnnealingWarmRestarts} ($T_0{=}10$, $T_{\text{mult}}{=}2$,
+$\eta_{\min}{=}10^{-5}$), gradient clipping at norm 1.0, batch size 32. The
+\textbf{short recipe} (40 epochs) was the richer-stem family's original schedule, used for
+that family's earliest experiments: AdamW with a flat $10^{-4}$ weight decay, a single cosine
+decay (no warm restarts), no gradient clipping, label smoothing 0.05, batch size 64, learning
+rate $10^{-3}$.
+
+The two recipes differ in more than epoch count, and Section~\ref{sec:recipe-crossing}
+reports a dedicated test of whether that bundle of differences matters. It does, substantially
+--- large enough that every richer-stem comparison in this report that bears on whether S4D
+adds real value is reported under the main recipe, with the original short-recipe numbers
+kept alongside as context about training dynamics rather than as the operative comparison.
+Every production-family run in this report uses the main recipe.
+
+For both families, the checkpoint with the highest validation accuracy is kept and used for
+final test-set evaluation.
+
+\subsection{Evaluation Metrics}
+Models are evaluated on their family's held-out test set with accuracy, macro-averaged F1,
+precision, and recall, and macro-averaged one-vs-rest AUC. Macro averaging weights all four
+classes equally regardless of support.
+
+\subsection{Reproducibility Checks}
+\label{sec:methodology-repro}
+Two independent noise-floor estimates are used in this report, one per architecture family.
+
+On the production family, one configuration (Linear Embed $+$ S4D,
+$d_{\text{model}}{=}d_{\text{state}}{\approx}108$) was trained a second time under a different
+seed (8842, vs.\ the original 30485), specifically to estimate how much a single run can vary
+for reasons unrelated to architecture. That estimate, \textbf{3.25 percentage points}, is used
+throughout this report's production-family results as a rough benchmark against which every
+other single-run comparison on that family is read.
+
+On the richer-stem family, the CNN-only-vs-hybrid comparison under the main recipe
+(Section~\ref{sec:sequence-contribution}) was likewise repeated at a second seed (8842). There,
+CNN-only Large moved 0.10pp and the hybrid moved 0.65pp between seeds, and the gap itself
+moved from $+0.50$pp to $+1.05$pp --- a \textbf{0.10--0.65pp per-model spread, 0.55pp
+gap spread}, directly measured for that specific comparison rather than borrowed from
+elsewhere.
+
+Neither estimate is a formal variance measurement (each rests on a single pair of seeds), and
+neither is assumed to transfer across architecture families or configurations --- but in the
+absence of repeated runs everywhere, they are the only direct evidence available of how much
+single-run numbers in this report could move under a different seed, and every comparison
+smaller than the relevant estimate is treated with real skepticism throughout.
+
+\emph{[Sections 3 (Experimental Results) through 8 (Appendix) omitted from this copy for
+brevity -- see the version supplied alongside the training notebooks for the full text,
+including the Master Results Table, the training-recipe-crossing study, the follow-up
+validation round, and the appendix training curves / confusion matrices. Every figure from
+those sections that this harness's registry.py and results/compiled_training_runs.xlsx rely
+on is reproduced and cross-checked against the original notebooks; see README.md for the
+provenance methodology.]}
+
+\end{document}

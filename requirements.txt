@@ -1,0 +1,20 @@
+# Core
+torch>=2.0
+torchvision
+einops
+scikit-learn
+numpy
+pandas
+
+# Dataset (pinned to the exact commit every notebook in this project used)
+git+https://github.com/mwalmsley/galaxy_mnist.git@c1fe9853a00bc34b2ff082585c6bb1654d34d239
+
+# Testing
+pytest
+
+# Excel report generation
+openpyxl
+
+# Optional: only needed for model/gui.py's GalaxyExplorerGUI, which is not
+# used by anything in this harness. Uncomment if you want the GUI too.
+# pygame
