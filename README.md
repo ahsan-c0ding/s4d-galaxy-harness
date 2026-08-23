@@ -1,6 +1,6 @@
 # S4D Galaxy Classifier -- Unified Training/Testing Harness
 
-Consolidates 15 Kaggle/Colab notebooks' worth of duplicated model
+Team 0x43. Consolidates 15 Kaggle/Colab notebooks' worth of duplicated model
 and training code into one tested, importable harness, plus a compiled
 Excel workbook of every training run behind the LaTeX report.
 

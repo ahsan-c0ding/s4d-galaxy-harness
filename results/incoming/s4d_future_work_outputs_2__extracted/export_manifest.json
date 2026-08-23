@@ -1,0 +1,26 @@
+{
+  "base_directory": "/kaggle/working/s4d_future_work",
+  "archives": {
+    "weights": {
+      "file": "s4d_future_work_weights.zip",
+      "contents": [
+        "weights/",
+        "checkpoints/"
+      ]
+    },
+    "outputs": {
+      "file": "s4d_future_work_outputs.zip",
+      "contents": [
+        "results/",
+        "plots/",
+        "logs/",
+        "job_manifests/",
+        "top-level metadata files"
+      ]
+    }
+  },
+  "counts": {
+    "weights_and_checkpoints_files": 38,
+    "output_files": 59
+  }
+}

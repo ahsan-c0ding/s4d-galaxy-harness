@@ -1,0 +1,47 @@
+[
+  {
+    "spec_id": "richer_rawpix_s4d2",
+    "seed": 30485,
+    "purpose": "richer_grid_main_recipe"
+  },
+  {
+    "spec_id": "richer_d2_s40",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  },
+  {
+    "spec_id": "richer_d2_s41",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  },
+  {
+    "spec_id": "richer_d3_s40",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  },
+  {
+    "spec_id": "richer_d2_s42",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  },
+  {
+    "spec_id": "richer_d4_s40",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  },
+  {
+    "spec_id": "richer_d4_s42",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  },
+  {
+    "spec_id": "richer_rawpix_s4d2",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  },
+  {
+    "spec_id": "richer_d1_s42",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  }
+]

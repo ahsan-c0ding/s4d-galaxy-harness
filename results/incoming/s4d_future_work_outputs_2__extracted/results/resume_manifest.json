@@ -1,0 +1,14 @@
+{
+  "quota_hours_remaining_displayed": 11.5,
+  "quota_mode": "per_gpu",
+  "gpus_used": 2,
+  "wall_budget_hours": 11.5,
+  "hard_training_deadline_hours": 11.333333333333334,
+  "main_seed": 30485,
+  "noise_seed": 8842,
+  "epochs": 630,
+  "completed_runs": 26,
+  "total_training_runs": 26,
+  "partial_checkpoints": 0,
+  "timestamp": "2026-08-23 02:02:57"
+}

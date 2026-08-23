@@ -1,0 +1,32 @@
+[
+  {
+    "spec_id": "richer_d1_s42",
+    "seed": 30485,
+    "purpose": "richer_grid_main_recipe"
+  },
+  {
+    "spec_id": "richer_d3_s41",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  },
+  {
+    "spec_id": "richer_d3_s42",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  },
+  {
+    "spec_id": "richer_d4_s41",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  },
+  {
+    "spec_id": "richer_d1_s41",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  },
+  {
+    "spec_id": "richer_d1_s40",
+    "seed": 8842,
+    "purpose": "richer_grid_noise_repeat_seed"
+  }
+]
